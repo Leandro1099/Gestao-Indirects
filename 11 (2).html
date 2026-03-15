@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tax Indirects Master Data v11</title>
+    <style>
+        :root {
+            --primary: #0f172a; --accent: #2563eb; --success: #10b981;
+            --danger: #ef4444; --warning: #f59e0b; --bg: #f8fafc;
+            --card: #ffffff; --border: #e2e8f0; --text: #334155;
+            --risk-baixo: #dcfce7; --risk-medio: #fef9c3; --risk-alto: #fee2e2;
+        }
+
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        
+        /* Sidebar */
+        .sidebar { width: 260px; background: var(--primary); color: white; display: flex; flex-direction: column; padding: 15px; z-index: 10; }
+        .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #1e293b; padding-bottom: 10px; }
+        .uf-list { overflow-y: auto; flex: 1; }
+        .uf-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; margin-bottom: 4px; border-radius: 6px; cursor: pointer; transition: 0.2s; font-size: 0.9rem; }
+        .uf-item:hover { background: #1e293b; }
+        .uf-item.active { background: var(--accent); color: white; font-weight: bold; }
+
+        /* Main Content */
+        .main { flex: 1; overflow-y: auto; padding: 25px; position: relative; }
+        .container { max-width: 1200px; margin: 0 auto; width: 100%; }
+        
+        /* Views */
+        .view-pane { display: none; }
+        .view-pane.active { display: block; }
+
+        /* Buttons */
+        .btn-sm { padding: 8px 14px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; font-size: 0.75rem; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-nav { background: #334155; color: white; width: 100%; margin-bottom: 8px; justify-content: flex-start; }
+        .btn-nav:hover { background: #475569; }
+        .btn-nav.active { border-left: 4px solid var(--accent); background: #1e293b; }
+
+        /* Tables & Cards */
+        .card { background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid var(--border); margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 12px; background: #f8fafc; font-size: 0.7rem; color: #64748b; border-bottom: 2px solid var(--border); }
+        td { padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 0.8rem; }
+
+        /* Chamados */
+        .risk-tag { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.65rem; text-transform: uppercase; }
+        .risk-baixo { background: var(--risk-baixo); color: #166534; }
+        .risk-medio { background: var(--risk-medio); color: #854d0e; }
+        .risk-alto { background: var(--risk-alto); color: #991b1b; }
+        
+        .status-open { color: var(--warning); font-weight: bold; }
+        .status-closed { color: var(--success); font-weight: bold; }
+
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; padding: 25px; border-radius: 15px; width: 500px; max-height: 90vh; overflow-y: auto; }
+        input, select { padding: 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; width: 100%; box-sizing: border-box; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="sidebar-header">
+        <h2 style="margin: 0; font-size: 1rem;">TAX INDIRECTS</h2>
+        <button class="btn-sm" style="background:transparent; border:1px solid #334155; color:#94a3b8" onclick="secureManageUFs()">⚙️</button>
+    </div>
+    
+    <nav style="margin-bottom: 20px;">
+        <button class="btn-sm btn-nav active" id="btnGlobal" onclick="showGlobalDashboard()">📊 Dashboard Global</button>
+        <button class="btn-sm btn-nav" id="btnTickets" onclick="showTickets()">🎫 Chamados Abertos</button>
+    </nav>
+
+    <div style="font-size: 0.65rem; color: #64748b; font-weight: bold; margin-bottom: 10px; text-transform: uppercase;">Estados Selecionados</div>
+    <div class="uf-list" id="sidebarList"></div>
+</div>
+
+<div class="main">
+    
+    <div id="viewTickets" class="view-pane">
+        <h1 style="margin:0 0 15px 0;">Central de Chamados / Demandas</h1>
+        
+        <div class="card" style="background: #f8fafc;">
+            <h4 style="margin-top:0">Abrir Novo Chamado</h4>
+            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 10px;">
+                <input type="text" id="tSubject" placeholder="Assunto / Demanda">
+                <div style="display:flex; flex-direction:column"><small>Data Entrada</small><input type="date" id="tDate"></div>
+                <div style="display:flex; flex-direction:column"><small>Risco</small>
+                    <select id="tRisk">
+                        <option value="Baixo">Baixo</option>
+                        <option value="Medio">Médio</option>
+                        <option value="Alto">Alto</option>
+                    </select>
+                </div>
+                <button class="btn-sm btn-primary" onclick="addTicket()" style="align-self: flex-end;">Abrir Chamado</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Fila de Atendimento</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th width="80">ID</th>
+                        <th>Assunto</th>
+                        <th>Entrada</th>
+                        <th>Risco</th>
+                        <th>Status</th>
+                        <th>Data Baixa</th>
+                        <th width="100">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="ticketBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="viewGlobal" class="view-pane">
+        <h1 style="margin:0 0 15px 0;">Monitor Nacional</h1>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px;">
+            <div style="background:var(--primary); color:white; padding:15px; border-radius:10px;">
+                <small>TOTAL FISCALIZAÇÕES</small><div id="gTotal" style="font-size:1.5rem; font-weight:bold">0</div>
+            </div>
+            <div style="background:var(--warning); color:white; padding:15px; border-radius:10px;">
+                <small>PROCESSOS EM ANDAMENTO</small><div id="gPending" style="font-size:1.5rem; font-weight:bold">0</div>
+            </div>
+            <div style="background:var(--danger); color:white; padding:15px; border-radius:10px;">
+                <small>VENCIDOS / ATENÇÃO</small><div id="gExpired" style="font-size:1.5rem; font-weight:bold">0</div>
+            </div>
+            <div style="background:#475569; color:white; padding:15px; border-radius:10px;">
+                <small>TOTAL CHAMADOS</small><div id="gTicketsTotal" style="font-size:1.5rem; font-weight:bold">0</div>
+            </div>
+            <div style="background:#6366f1; color:white; padding:15px; border-radius:10px;">
+                <small>CHAMADOS PENDENTES</small><div id="gTicketsOpen" style="font-size:1.5rem; font-weight:bold">0</div>
+            </div>
+            <div style="background:var(--success); color:white; padding:15px; border-radius:10px;">
+                <small>VALOR PAGO (ANO)</small><div id="gFinance" style="font-size:1.2rem; font-weight:bold">R$ 0,00</div>
+            </div>
+        </div>
+        <div class="card">
+            <h3>Status Consolidado por Estado</h3>
+            <table id="globalTable">
+                <thead><tr><th>UF</th><th>Processo</th><th>Entrada</th><th>Prazo Final</th><th>Prorrogação</th><th>Status</th></tr></thead>
+                <tbody id="globalBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="viewUF" class="view-pane">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+            <div>
+                <h1 id="activeUFTitle" style="margin:0; font-size: 1.4rem;">UF</h1>
+                <div style="display: flex; gap: 15px; margin-top: 5px; font-size: 0.85rem; color: #64748b;">
+                    <span>📅 Vencimento ICMS: <strong id="dashVencDia" style="color:var(--primary)">--</strong></span>
+                    <span>⚖️ Regra: <strong id="dashVencRegra" style="color:var(--primary)">--</strong></span>
+                </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn-sm btn-primary" style="background:#6366f1" onclick="showUFInbound()">🔍 Inbound</button>
+                <button class="btn-sm btn-primary" onclick="openUFModal()">⚙️ Parâmetros</button>
+            </div>
+        </div>
+        <div class="info-grid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 20px;">
+            <div class="card" style="padding:10px; margin:0; text-align:center"><small>Mercadoria</small><div id="dashAliqGeral" style="font-weight:bold">0%</div></div>
+            <div class="card" style="padding:10px; margin:0; text-align:center"><small>FECOP</small><div id="dashFecop" style="font-weight:bold">0%</div></div>
+            <div class="card" style="padding:10px; margin:0; text-align:center"><small>TELECOM</small><div id="dashTelecom" style="font-weight:bold">0%</div></div>
+            <div class="card" style="padding:10px; margin:0; text-align:center"><small>Presumido</small><div id="dashCredito" style="font-weight:bold">--</div></div>
+            <div class="card" style="padding:10px; margin:0; text-align:center"><small>Pré-pago</small><div id="dashPre" style="font-weight:bold">--</div></div>
+        </div>
+        <div class="card">
+            <h3>Fluxo Mensal ICMS</h3>
+            <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px;" id="financeMatrix"></div>
+        </div>
+        <div class="card">
+            <h3>Checklist</h3>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <input type="text" id="newTaskInput" placeholder="Nova atividade..." style="flex:1">
+                <button class="btn-sm btn-primary" onclick="addTask()">Add</button>
+            </div>
+            <div id="mainChecklistDisplay" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;"></div>
+        </div>
+    </div>
+
+    <div id="viewInbound" class="view-pane">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2>Inbound - <span id="fiscUFLabel"></span></h2>
+            <button class="btn-sm btn-primary" style="background:#475569" onclick="showUFMain()">⬅️ Voltar</button>
+        </div>
+        <div class="card" style="background: #f8fafc;">
+            <h4 style="margin-top:0">Novo Processo / Fiscalização</h4>
+            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 10px;">
+                <input type="text" id="fName" placeholder="Nome do Processo / Notificação">
+                <div style="display:flex; flex-direction:column"><small>Entrada</small><input type="date" id="fIn"></div>
+                <div style="display:flex; flex-direction:column"><small>Prazo Original</small><input type="date" id="fLimit"></div>
+                <div style="display:flex; flex-direction:column"><small>Status</small>
+                    <select id="fStatus">
+                        <option value="Em Andamento">Em Andamento</option>
+                        <option value="Concluído">Concluído</option>
+                    </select>
+                </div>
+                <button class="btn-sm btn-primary" onclick="addFiscalizacao()" style="align-self: flex-end;">Lançar</button>
+            </div>
+        </div>
+        <div class="card">
+            <table id="fiscTable">
+                <thead><tr><th>Processo</th><th>Entrada</th><th>Prazo Original</th><th>Prorrogação</th><th>Status</th><th>Ações</th></tr></thead>
+                <tbody id="fiscBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="modalUF" class="modal">
+    <div class="modal-content">
+        <h3>Configuração UF: <span id="labelUF"></span></h3>
+        <label>Mercadoria (%)</label><input type="number" id="cfgAliqGeral" step="0.01">
+        <label>FECOP (%)</label><input type="number" id="cfgFecop" step="0.01">
+        <label>TELECOM (%)</label><input type="number" id="cfgTelecom" step="0.01">
+        <label>Crédito Presumido?</label><select id="cfgCredito"><option value="Não">Não</option><option value="Sim">Sim</option></select>
+        <label>Considera Pré-pago?</label><select id="cfgPrePago"><option value="Não">Não</option><option value="Sim">Sim</option></select>
+        <hr>
+        <label>Dia Vencimento ICMS</label><input type="number" id="cfgDiaVenc" placeholder="Ex: 10">
+        <label>Regra Feriado/Fim de Semana</label>
+        <select id="cfgRegraVenc">
+            <option value="Antecipa">Antecipa</option>
+            <option value="Posterga">Posterga</option>
+        </select>
+        <div style="margin-top:20px; display:flex; gap:10px;">
+            <button class="btn-sm btn-primary" style="flex:1" onclick="saveUFConfig()">Salvar</button>
+            <button class="btn-sm" style="background:#e2e8f0" onclick="closeModal('modalUF')">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    let state = JSON.parse(localStorage.getItem('tax_v11')) || { 
+        activeUFs: ["SP", "RJ"], configs: {}, audits: {}, tasks: {}, finance: {}, 
+        tickets: [] 
+    };
+    let currentUF = null;
+
+    function init() { renderSidebar(); showGlobalDashboard(); }
+
+    function showTickets() { switchView('viewTickets'); currentUF = null; updateNavIcons('btnTickets'); renderTickets(); }
+
+    function addTicket() {
+        const sub = document.getElementById('tSubject').value;
+        const entry = document.getElementById('tDate').value;
+        const risk = document.getElementById('tRisk').value;
+        if(!sub || !entry) return alert("Assunto e Data são obrigatórios.");
+        state.tickets.push({ id: 'CH' + Math.floor(1000 + Math.random() * 9000), subject: sub, entry: entry, risk: risk, status: 'Aberto', closeDate: '' });
+        document.getElementById('tSubject').value = ''; save(); renderTickets();
+    }
+
+    function renderTickets() {
+        const body = document.getElementById('ticketBody'); body.innerHTML = '';
+        state.tickets.slice().reverse().forEach((t, i) => {
+            const idx = state.tickets.length - 1 - i; const isClosed = t.status === 'Concluído';
+            body.innerHTML += `<tr><td><small>${t.id}</small></td><td><strong>${t.subject}</strong></td><td>${t.entry.split('-').reverse().join('/')}</td><td><span class="risk-tag risk-${t.risk.toLowerCase()}">${t.risk}</span></td><td><span class="${isClosed ? 'status-closed' : 'status-open'}">${t.status}</span></td><td><input type="date" value="${t.closeDate}" onchange="closeTicket(${idx}, this.value)" ${isClosed?'disabled':''}></td><td><button onclick="deleteTicket(${idx})" style="border:none; background:none; cursor:pointer">🗑️</button></td></tr>`;
+        });
+    }
+
+    function closeTicket(idx, date) { if(!date) return; state.tickets[idx].status = 'Concluído'; state.tickets[idx].closeDate = date; save(); renderTickets(); }
+    function deleteTicket(idx) { state.tickets.splice(idx, 1); save(); renderTickets(); }
+    function switchView(id) { document.querySelectorAll('.view-pane').forEach(p => p.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+    function updateNavIcons(activeId) { document.querySelectorAll('.btn-nav').forEach(b => b.classList.remove('active')); document.getElementById(activeId).classList.add('active'); document.querySelectorAll('.uf-item').forEach(u => u.classList.remove('active')); }
+
+    function showGlobalDashboard() {
+        switchView('viewGlobal'); currentUF = null; updateNavIcons('btnGlobal');
+        const body = document.getElementById('globalBody'); body.innerHTML = '';
+        let total = 0, pending = 0, expired = 0, totalPaid = 0;
+        const today = new Date();
+
+        state.activeUFs.forEach(uf => {
+            (state.audits[uf] || []).forEach(p => {
+                total++; const isDone = p.status === 'Concluído'; const limitDate = p.extDate ? new Date(p.extDate) : new Date(p.limit);
+                if(!isDone) { pending++; if(limitDate < today) expired++; }
+                body.innerHTML += `<tr><td style="font-weight:bold">${uf}</td><td>${p.name}</td><td>${p.entry.split('-').reverse().join('/')}</td><td>${p.limit.split('-').reverse().join('/')}</td><td>${p.extDate ? p.extDate.split('-').reverse().join('/') : '--'}</td><td>${p.status}</td></tr>`;
+            });
+            totalPaid += (state.finance[uf] || []).reduce((a, b) => a + b, 0);
+        });
+
+        const tkTotal = state.tickets.length;
+        const tkOpen = state.tickets.filter(t => t.status !== 'Concluído').length;
+
+        document.getElementById('gTotal').innerText = total;
+        document.getElementById('gPending').innerText = pending;
+        document.getElementById('gExpired').innerText = expired;
+        document.getElementById('gTicketsTotal').innerText = tkTotal;
+        document.getElementById('gTicketsOpen').innerText = tkOpen;
+        document.getElementById('gFinance').innerText = totalPaid.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+    }
+
+    function selectUF(uf) {
+        currentUF = uf; switchView('viewUF'); document.querySelectorAll('.btn-nav').forEach(b => b.classList.remove('active')); renderSidebar();
+        document.getElementById('activeUFTitle').innerText = `Gestão UF: ${currentUF}`;
+        const c = state.configs[currentUF] || {};
+        
+        // Atualiza Dashboard Principal da UF
+        document.getElementById('dashAliqGeral').innerText = (c.aliqGeral || 0) + '%';
+        document.getElementById('dashFecop').innerText = (c.fecop || 0) + '%';
+        document.getElementById('dashTelecom').innerText = (c.telecom || 0) + '%';
+        document.getElementById('dashCredito').innerText = c.credito || 'Não';
+        document.getElementById('dashPre').innerText = c.prePago || 'Não';
+        
+        // Atualiza Infos de Vencimento no Topo
+        document.getElementById('dashVencDia').innerText = c.diaVenc ? `Todo dia ${c.diaVenc}` : '--';
+        document.getElementById('dashVencRegra').innerText = c.regraVenc || '--';
+        
+        renderFinance(); renderMainChecklist();
+    }
+
+    function renderFinance() {
+        const container = document.getElementById('financeMatrix'); container.innerHTML = '';
+        if(!state.finance[currentUF]) state.finance[currentUF] = new Array(12).fill(0);
+        months.forEach((m, i) => {
+            container.innerHTML += `<div style="background:#f8fafc; padding:8px; border-radius:6px; border:1px solid var(--border)">
+                <label style="font-size:0.6rem; font-weight:bold; color:var(--accent)">${m}</label>
+                <input type="number" value="${state.finance[currentUF][i]}" onchange="updateFinance(${i}, this.value)" style="border:none; background:transparent; font-weight:bold; width:100%">
+            </div>`;
+        });
+    }
+
+    function updateFinance(i, v) { state.finance[currentUF][i] = parseFloat(v) || 0; save(); }
+    function addTask() { const inp = document.getElementById('newTaskInput'); if(!inp.value) return; if(!state.tasks[currentUF]) state.tasks[currentUF] = []; state.tasks[currentUF].push({text: inp.value, done: false}); inp.value=''; save(); renderMainChecklist(); }
+    function renderMainChecklist() { const c = document.getElementById('mainChecklistDisplay'); c.innerHTML = ''; (state.tasks[currentUF]||[]).forEach((t, i) => { c.innerHTML += `<div style="background:white; padding:10px; border-radius:8px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;"><label style="display:flex; gap:8px; align-items:center; cursor:pointer; flex:1"><input type="checkbox" ${t.done?'checked':''} onchange="toggleTask(${i})"><span style="${t.done?'text-decoration:line-through; opacity:0.6':''}">${t.text}</span></label><button onclick="deleteTask(${i})" style="color:var(--danger); border:none; background:none; cursor:pointer">✕</button></div>`; }); }
+    function showUFInbound() { switchView('viewInbound'); document.getElementById('fiscUFLabel').innerText = currentUF; renderFiscalizacoes(); }
+    function showUFMain() { switchView('viewUF'); }
+    function renderFiscalizacoes() { const b = document.getElementById('fiscBody'); b.innerHTML = ''; (state.audits[currentUF]||[]).forEach((a, i) => { b.innerHTML += `<tr><td><strong>${a.name}</strong></td><td>${a.entry.split('-').reverse().join('/')}</td><td>${a.limit.split('-').reverse().join('/')}</td><td><input type="date" value="${a.extDate||''}" onchange="updateExtension(${i}, this.value)" style="width:auto"></td><td><select onchange="updateFStatus(${i}, this.value)"><option value="Em Andamento" ${a.status==='Em Andamento'?'selected':''}>Em Andamento</option><option value="Concluído" ${a.status==='Concluído'?'selected':''}>Concluído</option></select></td><td><button onclick="deleteFisc(${i})" style="border:none; background:none; cursor:pointer">🗑️</button></td></tr>`; }); }
+    function updateExtension(i, v) { state.audits[currentUF][i].extDate = v; save(); }
+    function updateFStatus(i, s) { state.audits[currentUF][i].status = s; save(); renderFiscalizacoes(); }
+    function addFiscalizacao() { const n=document.getElementById('fName').value, e=document.getElementById('fIn').value, l=document.getElementById('fLimit').value, s=document.getElementById('fStatus').value; if(!n||!e||!l) return alert("Erro."); if(!state.audits[currentUF]) state.audits[currentUF]=[]; state.audits[currentUF].push({name:n, entry:e, limit:l, status:s, extDate:''}); save(); renderFiscalizacoes(); }
+    function renderSidebar() { const l = document.getElementById('sidebarList'); l.innerHTML = ''; state.activeUFs.sort().forEach(uf => { l.innerHTML += `<div class="uf-item ${currentUF===uf?'active':''}" onclick="selectUF('${uf}')"><span>${uf}</span></div>`; }); }
+    
+    function openUFModal() { 
+        const c = state.configs[currentUF] || {}; document.getElementById('labelUF').innerText = currentUF; 
+        document.getElementById('cfgAliqGeral').value = c.aliqGeral||""; 
+        document.getElementById('cfgFecop').value = c.fecop||""; 
+        document.getElementById('cfgTelecom').value = c.telecom||""; 
+        document.getElementById('cfgCredito').value = c.credito||"Não"; 
+        document.getElementById('cfgPrePago').value = c.prePago||"Não"; 
+        document.getElementById('cfgDiaVenc').value = c.diaVenc||""; 
+        document.getElementById('cfgRegraVenc').value = c.regraVenc||"Antecipa"; 
+        document.getElementById('modalUF').style.display = 'flex'; 
+    }
+
+    function saveUFConfig() { 
+        state.configs[currentUF] = { 
+            aliqGeral: document.getElementById('cfgAliqGeral').value, 
+            fecop: document.getElementById('cfgFecop').value, 
+            telecom: document.getElementById('cfgTelecom').value, 
+            credito: document.getElementById('cfgCredito').value, 
+            prePago: document.getElementById('cfgPrePago').value,
+            diaVenc: document.getElementById('cfgDiaVenc').value,
+            regraVenc: document.getElementById('cfgRegraVenc').value
+        }; 
+        save(); closeModal('modalUF'); selectUF(currentUF); 
+    }
+
+    function secureManageUFs() { const p = prompt("Código:"); if(p==='CONFIG') { const r = prompt("UFs:", state.activeUFs.join(", ")); if(r) { state.activeUFs = r.split(",").map(s => s.trim().toUpperCase()); save(); location.reload(); } } }
+    function toggleTask(i) { state.tasks[currentUF][i].done = !state.tasks[currentUF][i].done; save(); renderMainChecklist(); }
+    function deleteTask(i) { state.tasks[currentUF].splice(i, 1); save(); renderMainChecklist(); }
+    function deleteFisc(i) { state.audits[currentUF].splice(i, 1); save(); renderFiscalizacoes(); }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+    function save() { localStorage.setItem('tax_v11', JSON.stringify(state)); }
+    init();
+</script>
+</body>
+</html>
